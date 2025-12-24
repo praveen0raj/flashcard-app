@@ -56,6 +56,539 @@ Comprehensive technical documentation is available in **[DOCUMENTATION.md](./DOC
 - **Containerization**: Docker Compose (PostgreSQL)
 - **Deployment**: Vercel (app) + Railway/Supabase (database)
 
+---
+
+## Software Principles & Architectural Patterns
+
+This project follows industry-standard software engineering principles and architectural patterns to ensure maintainability, scalability, and code quality.
+
+### Core Software Principles
+
+#### 1. SOLID Principles
+
+**Single Responsibility Principle (SRP)**
+- Each module has one reason to change
+- `lib/auth.ts` - Handles only authentication logic (JWT, password hashing)
+- `lib/spacedRepetition.ts` - Contains only SM-2 algorithm logic
+- `lib/prisma.ts` - Manages only database client instantiation
+- API routes handle single endpoints with specific responsibilities
+
+**Open/Closed Principle (OCP)**
+- Open for extension, closed for modification
+- SM-2 algorithm can be extended with new strategies without modifying core
+- Component library designed for composition and extension
+- Middleware can be extended with additional authentication strategies
+
+**Liskov Substitution Principle (LSP)**
+- TypeScript interfaces ensure type compatibility
+- Prisma models can be substituted with mock implementations for testing
+- React components accept props that can be extended without breaking existing usage
+
+**Interface Segregation Principle (ISP)**
+- Zod schemas define minimal required fields
+- API responses include only necessary data (using Prisma `select`)
+- Components receive only the props they need
+
+**Dependency Inversion Principle (DIP)**
+- High-level modules don't depend on low-level modules
+- API routes depend on abstractions (`lib/auth.ts`) not concrete implementations
+- Components depend on hooks, not direct API calls
+- Database logic abstracted through Prisma ORM
+
+#### 2. DRY (Don't Repeat Yourself)
+
+**Utility Functions**
+```typescript
+// lib/auth.ts - Reusable auth functions
+getCurrentUser(), hashPassword(), verifyPassword()
+
+// lib/validators.ts - Shared validation schemas
+flashcardSchema, categorySchema, reviewSchema
+```
+
+**Custom Hooks**
+```typescript
+// hooks/useFlashcards.ts - Reusable data fetching
+export function useFlashcards(categoryId?: number) { ... }
+
+// hooks/useReviews.ts - Study session logic
+export function useReviews() { ... }
+```
+
+**Shared Components**
+- `components/ui/` - Button, Card, Modal, Input (reused across app)
+- Consistent styling through Tailwind utilities and design tokens
+
+#### 3. KISS (Keep It Simple, Stupid)
+
+- Simple, focused API routes (one endpoint = one file)
+- Clear function names that describe what they do
+- Flat component hierarchy (avoid deep nesting)
+- Direct database queries using Prisma (no unnecessary abstraction layers)
+- Straightforward state management with Zustand
+
+#### 4. YAGNI (You Aren't Gonna Need It)
+
+- No premature optimization
+- No over-engineering of abstractions
+- Features implemented only when required
+- Simple JWT auth instead of complex OAuth initially
+- Local file storage before cloud storage
+
+#### 5. Separation of Concerns
+
+**Clear Layer Separation**
+```
+Presentation Layer → Components (React)
+Application Layer → Hooks + Stores (Business logic)
+API Layer         → Next.js API Routes
+Business Logic    → lib/ utilities
+Data Access       → Prisma ORM
+Database          → PostgreSQL
+```
+
+**File-based Organization**
+- `/app` - Pages and routing
+- `/components` - UI components
+- `/lib` - Business logic and utilities
+- `/hooks` - React hooks for data fetching
+- `/store` - Client state management
+- `/types` - TypeScript definitions
+
+---
+
+### Architectural Patterns
+
+#### 1. **Layered Architecture (N-Tier)**
+
+```
+┌─────────────────────────────────────┐
+│   Presentation Layer                │
+│   (Next.js Pages + React Components)│
+├─────────────────────────────────────┤
+│   Application Layer                 │
+│   (Custom Hooks + State Management) │
+├─────────────────────────────────────┤
+│   API Layer                         │
+│   (Next.js API Routes)              │
+├─────────────────────────────────────┤
+│   Business Logic Layer              │
+│   (lib/auth, lib/spacedRepetition)  │
+├─────────────────────────────────────┤
+│   Data Access Layer                 │
+│   (Prisma ORM)                      │
+├─────────────────────────────────────┤
+│   Database Layer                    │
+│   (PostgreSQL)                      │
+└─────────────────────────────────────┘
+```
+
+**Benefits:**
+- Clear separation of responsibilities
+- Easy to test individual layers
+- Scalable and maintainable
+- Changes in one layer don't affect others
+
+#### 2. **Repository Pattern**
+
+Prisma ORM acts as a repository abstraction:
+
+```typescript
+// Instead of raw SQL
+const flashcards = await prisma.flashcard.findMany({
+  where: { userId: user.id },
+  include: { category: true },
+});
+
+// Type-safe, abstracted data access
+// No SQL injection vulnerabilities
+// Easy to mock for testing
+```
+
+**Benefits:**
+- Centralized data access logic
+- Type safety with TypeScript
+- Simplified testing (can mock Prisma)
+- Database independence
+
+#### 3. **MVC/API Route Pattern**
+
+Next.js API Routes follow Model-View-Controller pattern:
+
+```typescript
+// app/api/flashcards/route.ts
+export async function GET(request) {
+  // Controller logic
+  const user = await getCurrentUser();
+
+  // Model access
+  const flashcards = await prisma.flashcard.findMany({
+    where: { userId: user.id },
+  });
+
+  // View response
+  return NextResponse.json({ flashcards });
+}
+```
+
+**Components:**
+- **Model**: Prisma models (`prisma/schema.prisma`)
+- **View**: JSON responses from API routes
+- **Controller**: API route handlers
+
+#### 4. **Service Layer Pattern**
+
+Business logic extracted into service functions:
+
+```typescript
+// lib/spacedRepetition.ts - Service
+export function calculateSM2(quality, repetitions, easeFactor, interval) {
+  // Pure business logic
+  // No dependencies on database or HTTP
+  // Easy to test in isolation
+}
+
+// API route uses the service
+import { calculateSM2 } from '@/lib/spacedRepetition';
+const newSchedule = calculateSM2(quality, schedule.repetitions, ...);
+```
+
+**Benefits:**
+- Reusable business logic
+- Testable in isolation
+- Clear separation from infrastructure concerns
+
+#### 5. **Middleware Pattern**
+
+Next.js middleware for cross-cutting concerns:
+
+```typescript
+// middleware.ts - Authentication middleware
+export async function middleware(request) {
+  const token = request.cookies.get('auth-token');
+
+  if (!token) {
+    return NextResponse.redirect('/login');
+  }
+
+  // Verify JWT
+  const user = verifyToken(token.value);
+  if (!user) {
+    return NextResponse.redirect('/login');
+  }
+
+  return NextResponse.next();
+}
+
+// Applies to protected routes
+export const config = {
+  matcher: ['/dashboard/:path*', '/flashcards/:path*'],
+};
+```
+
+**Use Cases:**
+- Authentication/authorization
+- Logging and analytics
+- Request/response modification
+- Error handling
+
+#### 6. **Observer Pattern (State Management)**
+
+Zustand implements observer pattern for state:
+
+```typescript
+// store/authStore.ts
+export const useAuthStore = create((set) => ({
+  user: null,
+  setUser: (user) => set({ user }), // Notify observers
+  logout: () => set({ user: null }),
+}));
+
+// Component observes state
+function Header() {
+  const user = useAuthStore((state) => state.user); // Subscribe
+  // Re-renders when user changes
+}
+```
+
+**Benefits:**
+- Reactive UI updates
+- Decoupled state management
+- Multiple components can observe same state
+
+#### 7. **Strategy Pattern (SM-2 Algorithm)**
+
+Spaced repetition algorithm as a strategy:
+
+```typescript
+// lib/spacedRepetition.ts
+export interface SpacedRepetitionStrategy {
+  calculate(quality: number, schedule: Schedule): NewSchedule;
+}
+
+// SM-2 implementation
+export class SM2Strategy implements SpacedRepetitionStrategy {
+  calculate(quality, schedule) {
+    // SM-2 algorithm implementation
+  }
+}
+
+// Can be swapped with SM-5, Anki algorithm, or custom strategies
+```
+
+**Benefits:**
+- Algorithm can be swapped without changing API
+- Easy to A/B test different algorithms
+- Extensible for future improvements
+
+#### 8. **Factory Pattern (Prisma Client)**
+
+Singleton factory for database client:
+
+```typescript
+// lib/prisma.ts
+const globalForPrisma = globalThis as { prisma?: PrismaClient };
+
+// Factory function
+export const prisma =
+  globalForPrisma.prisma ??
+  new PrismaClient({ log: ['error'] });
+
+// Prevent multiple instances in development
+if (process.env.NODE_ENV !== 'production') {
+  globalForPrisma.prisma = prisma;
+}
+```
+
+**Benefits:**
+- Single database connection pool
+- Prevents connection exhaustion
+- Efficient resource usage
+
+#### 9. **Dependency Injection**
+
+Function parameters inject dependencies:
+
+```typescript
+// API route receives dependencies
+export async function POST(request: NextRequest) {
+  const user = await getCurrentUser(); // Injected auth
+  const data = await request.json();   // Injected request
+  const result = await prisma.create({...}); // Injected DB
+  return NextResponse.json(result);
+}
+
+// Easy to mock for testing
+const mockUser = { id: 1 };
+const mockPrisma = { create: jest.fn() };
+```
+
+#### 10. **Server-Side Rendering (SSR) Pattern**
+
+Next.js 14 App Router with React Server Components:
+
+```typescript
+// app/(dashboard)/page.tsx - Server Component
+export default async function DashboardPage() {
+  // Runs on server only
+  const user = await getCurrentUser();
+  const stats = await prisma.dailyStat.findMany({
+    where: { userId: user.id },
+  });
+
+  // Rendered on server, sent as HTML
+  return <Dashboard stats={stats} />;
+}
+```
+
+**Benefits:**
+- Faster initial page load
+- Better SEO
+- Reduced client-side JavaScript
+- Direct database access (no API route needed)
+
+---
+
+### Design Patterns in Action
+
+#### Component Composition Pattern
+
+```typescript
+// Small, focused components composed together
+<Card>
+  <CardHeader>
+    <CardTitle>Flashcard Statistics</CardTitle>
+  </CardHeader>
+  <CardContent>
+    <StatsChart data={dailyStats} />
+  </CardContent>
+</Card>
+```
+
+#### Custom Hook Pattern
+
+```typescript
+// Encapsulate complex logic in reusable hooks
+function useFlashcards(categoryId?: number) {
+  return useQuery({
+    queryKey: ['flashcards', categoryId],
+    queryFn: () => fetchFlashcards(categoryId),
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+// Usage in components
+const { data, isLoading } = useFlashcards(1);
+```
+
+#### Render Props Pattern (TanStack Query)
+
+```typescript
+<Query query={flashcardsQuery}>
+  {({ data, isLoading }) => (
+    isLoading ? <Spinner /> : <FlashcardList data={data} />
+  )}
+</Query>
+```
+
+#### Higher-Order Component (HOC) Pattern
+
+```typescript
+// Middleware wraps route handlers
+export function withAuth(handler) {
+  return async (request) => {
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    return handler(request, user);
+  };
+}
+
+// Usage
+export const GET = withAuth(async (request, user) => {
+  // User is authenticated
+});
+```
+
+---
+
+### Best Practices Implemented
+
+#### Type Safety
+
+✅ **TypeScript throughout**
+- Compile-time type checking
+- IntelliSense autocomplete
+- Refactoring safety
+
+✅ **Prisma type generation**
+- Database schema → TypeScript types
+- No manual type definitions for models
+
+✅ **Zod validation**
+- Runtime type validation
+- Type inference from schemas
+
+#### Security
+
+✅ **Input validation** (Zod schemas on all API endpoints)
+✅ **SQL injection prevention** (Prisma parameterized queries)
+✅ **XSS prevention** (HTTP-only cookies, React auto-escaping)
+✅ **CSRF protection** (SameSite cookies)
+✅ **Password hashing** (bcrypt with 10 rounds)
+✅ **JWT expiration** (7-day tokens)
+
+#### Performance
+
+✅ **Database indexing** (userId, categoryId, nextReviewDate)
+✅ **Pagination** (limit 20-100 records per page)
+✅ **Caching** (TanStack Query 5-minute stale time)
+✅ **Code splitting** (Next.js automatic chunking)
+✅ **Image optimization** (Sharp processing, Next.js Image component)
+✅ **Server components** (reduce client JavaScript)
+
+#### Testing Strategy
+
+✅ **Unit tests** for pure functions (SM-2 algorithm)
+✅ **Integration tests** for API routes
+✅ **Component tests** with React Testing Library
+✅ **E2E tests** with Playwright (optional)
+
+#### Error Handling
+
+✅ **Consistent error responses**
+```typescript
+return NextResponse.json(
+  { error: 'Resource not found' },
+  { status: 404 }
+);
+```
+
+✅ **Error boundaries** for React components
+✅ **Try-catch blocks** in API routes
+✅ **Prisma error handling** for database operations
+
+#### Code Organization
+
+✅ **Feature-based folders** (flashcard/, study/, quiz/)
+✅ **Colocation** (components near their usage)
+✅ **Barrel exports** (index.ts for clean imports)
+✅ **Naming conventions** (PascalCase for components, camelCase for functions)
+
+---
+
+### Architecture Decision Records (ADRs)
+
+#### Why Next.js API Routes instead of separate Express server?
+
+**Decision**: Use Next.js API Routes for backend
+
+**Rationale**:
+- Single deployment (no separate frontend/backend repos)
+- Better TypeScript integration (shared types)
+- Automatic API route optimization
+- Edge runtime support for performance
+- Simpler development workflow
+
+**Trade-offs**:
+- Vendor lock-in to Next.js
+- Less control over HTTP server configuration
+- Not ideal for microservices architecture
+
+#### Why Prisma instead of raw SQL or other ORMs?
+
+**Decision**: Use Prisma ORM
+
+**Rationale**:
+- Type-safe database access
+- Auto-generated TypeScript types
+- Excellent developer experience (Prisma Studio)
+- Database migrations with version control
+- Active development and community
+
+**Trade-offs**:
+- Slight performance overhead vs raw SQL
+- Learning curve for complex queries
+- Migration dependencies
+
+#### Why JWT instead of session-based auth?
+
+**Decision**: Use JWT with HTTP-only cookies
+
+**Rationale**:
+- Stateless authentication (no session storage)
+- Scales horizontally (no session synchronization)
+- Works well with serverless (Vercel)
+- Can decode user info without database query
+
+**Trade-offs**:
+- Cannot invalidate tokens before expiry
+- Slightly larger request size
+- Requires careful token rotation strategy
+
+---
+
 ## Getting Started
 
 ### Prerequisites
