@@ -22,6 +22,18 @@ A full-stack flashcard application built with Next.js 14, featuring spaced repet
 - **Responsive Design**: Works seamlessly on desktop, tablet, and mobile
 - **Keyboard Shortcuts**: Efficient navigation (Space to flip, 0-5 for ratings)
 
+## 📚 Documentation
+
+Comprehensive documentation is available in the [`/docs`](./docs) folder:
+
+- **[Architecture](./docs/architecture.md)** - System design, database schema, security, scalability
+- **[Frontend Framework](./docs/frontend-framework.md)** - Next.js patterns, component architecture, state management
+- **[Sequence Diagrams](./docs/sequence-diagrams.md)** - User flows and system interactions (Mermaid)
+- **[Use Case Diagrams](./docs/use-case-diagrams.md)** - Feature interactions and scenarios (Mermaid)
+- **[Design System](./docs/design-system.md)** - UI/UX guidelines, colors, typography, components
+
+👉 [**Start here: Documentation Index**](./docs/README.md)
+
 ## Tech Stack
 
 ### Frontend
