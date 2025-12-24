@@ -24,15 +24,15 @@ A full-stack flashcard application built with Next.js 14, featuring spaced repet
 
 ## 📚 Documentation
 
-Comprehensive documentation is available in the [`/docs`](./docs) folder:
+Comprehensive technical documentation is available in **[DOCUMENTATION.md](./DOCUMENTATION.md)**, covering:
 
-- **[Architecture](./docs/architecture.md)** - System design, database schema, security, scalability
-- **[Frontend Framework](./docs/frontend-framework.md)** - Next.js patterns, component architecture, state management
-- **[Sequence Diagrams](./docs/sequence-diagrams.md)** - User flows and system interactions (Mermaid)
-- **[Use Case Diagrams](./docs/use-case-diagrams.md)** - Feature interactions and scenarios (Mermaid)
-- **[Design System](./docs/design-system.md)** - UI/UX guidelines, colors, typography, components
+- **System Architecture** - Tech stack, database schema, security, scalability
+- **Frontend Framework** - Next.js 14 patterns, component architecture, state management
+- **Sequence Diagrams** - User flows and system interactions (Mermaid)
+- **Use Case Diagrams** - Feature interactions and scenarios (Mermaid)
+- **Design System** - UI/UX guidelines, colors, typography, components
 
-👉 [**Start here: Documentation Index**](./docs/README.md)
+👉 **[View Complete Documentation](./DOCUMENTATION.md)**
 
 ## Tech Stack
 
